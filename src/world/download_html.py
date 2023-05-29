@@ -2,26 +2,20 @@ import re
 import requests
 import sys
 from bs4 import BeautifulSoup
+from structs.country_gdp_by_sector import CountryGDPBySector
 
 patternFull = re.compile("(agriculture: .*)(industry: .*)(services: .*)")
 patternNA = re.compile("[a-z]*: NA")
 patternPercent = re.compile("[a-z]*: (\d\d?\d?(?:\.\d)?)\% \((\d\d\d\\d)(?: est.)?\)")
 
-# define the URL to download and parse
 url = "https://www.cia.gov/the-world-factbook/field/gdp-composition-by-sector-of-origin"
-
-# make a GET request to the URL
 response = requests.get(url)
-# check if the request was successful
 if response.status_code == 200:
-    # create a BeautifulSoup object from the HTML content
     soup = BeautifulSoup(response.content, "html.parser")
-
-    # print the title of the HTML document
-    print(soup.title.string)
-    print(len(soup.find_all("h2", "h3")))
-
+    countryList = []
     # print the body of the HTML document
+    # soup.find_all("h2", "h3") looks for all h2 elements with class="h3" attribute.
+    # The page has elements like <h2 class="h3">, strange as it seems.
     for item in soup.find_all("h2", "h3"):
         agriculturePercent = -1.0
         agricultureYear = -1
@@ -30,14 +24,8 @@ if response.status_code == 200:
         servicesPercent = -1.0
         servicesYear = -1
 
-        # print(item.text)
-        # print(item.next_sibling.text)
-        # Compile RE into Pattern outside loop.
-        # m = re.match("(agriculture: .*)(industry: [NA|[\d\d?\d?[\.\d]?\% \((\d\d\d\d|FY12/13)[ est\.)]\)))services: (NA|\d(\d)?(\d)?(\.\d)?\% \((\d\d\d\d|FY12/13)( est\.)?\))", item.next_sibling.text)
         matchFull = patternFull.search(item.next_sibling.text)
         if matchFull is None:
-            # print(item.next_sibling.text[does_match.span()[0]:does_match.span()[1]])
-            # item.next_sibling.text[int(does_match.span()[0]), int(does_match.span()[1])]
             print(item.text)
             print(item.next_sibling.text)
             print("\n")
@@ -73,13 +61,18 @@ if response.status_code == 200:
                 if mServicesPercent is not None:
                     servicesPercent = float(mServicesPercent.group(1))
                     servicesYear = int(mServicesPercent.group(2))
+            country = CountryGDPBySector(country=country,
+                                         agriculture_percent=agriculturePercent,agriculture_year=agricultureYear,
+                                         industry_percent=industryPercent,industry_year=industryYear,
+                                         services_percent=servicesPercent,services_year=servicesYear)
+            countryList.append(country)
         # Ignore Isle of Man.
         if item.text != "Isle of Man" and \
             (agriculturePercent < 0 or agricultureYear < 0 or 
              industryPercent < 0 or industryYear < 0 or 
              servicesPercent < 0 or servicesYear < 0):
             print("ERROR: " + item.text + " :: " + item.next_sibling.text)
+    print(len(countryList))
 
 else:
-    # print an error message if the request was not successful
     print("Error:", response.status_code)

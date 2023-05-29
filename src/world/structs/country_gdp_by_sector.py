@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from country import Country
 
 @dataclass(frozen=True)
 class CountryGDPBySector:
